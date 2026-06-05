@@ -4,7 +4,7 @@ export default function ProductCard({ product }: { product: Product }) {
   return (
     <div className="group flex flex-col">
       {/* Image */}
-      <div className="aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden mb-3">
+      <div className="aspect-3/4 bg-gray-100 rounded-lg overflow-hidden mb-3">
         {product.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

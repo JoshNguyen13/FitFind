@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getResults } from '@/lib/api'
+import { getResults, getMockResults } from '@/lib/api'
 import type { AnalyzeResponse, Product, SortOption } from '@/types'
 import ProductCard from '@/components/ProductCard'
-import DetectedTags from '@/components/DetectedTags'
 import SortFilter from '@/components/SortFilter'
 
 export default function ResultsPage() {
@@ -14,6 +13,7 @@ export default function ResultsPage() {
   const [exactItems, setExactItems] = useState<Product[]>([])
   const [relatedItems, setRelatedItems] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [sort, setSort] = useState<SortOption>('relevance')
   const [minPrice, setMinPrice] = useState(0)
   const [maxPrice, setMaxPrice] = useState(10000)
@@ -38,12 +38,16 @@ export default function ResultsPage() {
     max: number,
   ) {
     setLoading(true)
+    setFetchError(null)
     try {
-      const results = await getResults(data.exact_queries, data.related_query, sortVal, min, max)
+      const isMock = sessionStorage.getItem('fitfind_mock') === 'true'
+      const results = isMock
+        ? await getMockResults()
+        : await getResults(data.exact_queries, data.related_query, sortVal, min, max)
       setExactItems(results.exact_items)
       setRelatedItems(results.related_items)
     } catch {
-      // Leave current results in place on a failed re-fetch
+      setFetchError('Failed to load products. Try again.')
     } finally {
       setLoading(false)
     }
@@ -68,8 +72,8 @@ export default function ResultsPage() {
   const detectedItems = analysis.analysis.items.slice(0, 6)
 
   return (
-    <main className="max-w-6xl mx-auto px-6 py-12">
-      {/* Back link + detected tags */}
+    <main className="max-w-6xl mx-auto px-6 py-12 min-h-screen">
+      {/* Back link + aesthetic badge */}
       <div className="mb-10">
         <button
           onClick={() => router.push('/')}
@@ -77,9 +81,25 @@ export default function ResultsPage() {
         >
           ← New search
         </button>
-        <h1 className="text-2xl font-bold mb-4">Results</h1>
-        <DetectedTags analysis={analysis.analysis} />
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Results</h1>
+          <span className="bg-black text-white text-xs font-semibold px-3 py-1.5 rounded-full capitalize">
+            {analysis.analysis.aesthetic}
+          </span>
+        </div>
       </div>
+
+      {fetchError && (
+        <div className="mb-8 p-4 bg-red-50 rounded-lg flex items-center justify-between">
+          <p className="text-sm text-red-600">{fetchError}</p>
+          <button
+            onClick={() => analysis && fetchResults(analysis, sort, minPrice, maxPrice)}
+            className="text-sm font-medium text-red-600 hover:text-red-800 underline underline-offset-2"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       <SortFilter
         sort={sort}
@@ -96,16 +116,6 @@ export default function ResultsPage() {
         {/* Item filter buttons */}
         {!loading && exactItems.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-6">
-            <button
-              onClick={() => setActiveItem(null)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                activeItem === null
-                  ? 'bg-black text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              All
-            </button>
             {detectedItems.map(item => (
               <button
                 key={item}
@@ -158,7 +168,7 @@ function SkeletonGrid() {
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="animate-pulse">
-          <div className="aspect-[3/4] bg-gray-200 rounded-lg mb-3" />
+          <div className="aspect-3/4 bg-gray-200 rounded-lg mb-3" />
           <div className="h-2.5 bg-gray-200 rounded mb-2 w-1/2" />
           <div className="h-2.5 bg-gray-200 rounded mb-2" />
           <div className="h-2.5 bg-gray-200 rounded w-1/3" />

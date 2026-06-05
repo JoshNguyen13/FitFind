@@ -10,6 +10,16 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json()
 }
 
+export async function analyzeMock(): Promise<AnalyzeResponse> {
+  const res = await fetch(`${API_URL}/analyze-mock`, { method: 'POST' })
+  return handleResponse<AnalyzeResponse>(res)
+}
+
+export async function getMockResults(): Promise<ResultsResponse> {
+  const res = await fetch(`${API_URL}/results-mock`, { method: 'POST' })
+  return handleResponse<ResultsResponse>(res)
+}
+
 export async function analyzeUrl(url: string): Promise<AnalyzeResponse> {
   const res = await fetch(`${API_URL}/analyze-url`, {
     method: 'POST',

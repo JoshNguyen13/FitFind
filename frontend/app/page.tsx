@@ -2,7 +2,22 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { analyzeUrl, analyzeImage } from '@/lib/api'
+import { analyzeUrl, analyzeImage, analyzeMock } from '@/lib/api'
+
+function friendlyError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : ''
+  if (msg.includes('Could not download') || msg.includes('DownloadError'))
+    return "This video isn't publicly accessible. Make sure the account is public and try again."
+  if (msg.includes('No frames'))
+    return "Couldn't extract frames from this video. Try a different URL."
+  if (msg.includes('no clothing') || msg.includes('items: []') || msg.includes('No clothing'))
+    return 'No clothing detected in this image. Try a clearer photo with a visible outfit.'
+  if (msg.includes('Gemini could not'))
+    return 'Analysis failed. Try again in a moment.'
+  if (msg.includes('fetch') || msg.includes('network') || msg.includes('Failed to fetch'))
+    return 'Could not reach the server. Make sure the backend is running.'
+  return msg || 'Something went wrong. Try again.'
+}
 
 export default function Home() {
   const router = useRouter()
@@ -19,9 +34,10 @@ export default function Home() {
     try {
       const result = await analyzeUrl(url)
       sessionStorage.setItem('fitfind_analysis', JSON.stringify(result))
+      sessionStorage.removeItem('fitfind_mock')
       router.push('/results')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Try again.')
+      setError(friendlyError(err))
     } finally {
       setLoading(false)
     }
@@ -42,9 +58,10 @@ export default function Home() {
     try {
       const result = await analyzeImage(file)
       sessionStorage.setItem('fitfind_analysis', JSON.stringify(result))
+      sessionStorage.removeItem('fitfind_mock')
       router.push('/results')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Try again.')
+      setError(friendlyError(err))
       setPreview(null)
     } finally {
       setLoading(false)
@@ -52,9 +69,9 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen max-w-xl mx-auto px-6 py-20">
-      <h1 className="text-4xl font-bold tracking-tight mb-2">FitFind</h1>
-      <p className="text-gray-500 mb-12 text-sm">
+    <main className="min-h-screen max-w-lg mx-auto px-6 py-24">
+      <h1 className="text-5xl font-bold tracking-tight mb-3">FitFind</h1>
+      <p className="text-gray-400 mb-14 text-base leading-relaxed">
         Paste a TikTok or Instagram URL, or upload a screenshot — get shoppable results.
       </p>
 
@@ -116,6 +133,31 @@ export default function Home() {
       )}
 
       {error && <p className="mt-5 text-sm text-red-600">{error}</p>}
+
+      {/* Dev shortcut — bypasses Gemini entirely */}
+      <div className="mt-16 pt-8 border-t border-gray-100">
+        <p className="text-xs text-gray-400 mb-3">Dev mode</p>
+        <button
+          onClick={async () => {
+            setError(null)
+            setLoading(true)
+            try {
+              const result = await analyzeMock()
+              sessionStorage.setItem('fitfind_analysis', JSON.stringify(result))
+              sessionStorage.setItem('fitfind_mock', 'true')
+              router.push('/results')
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'Something went wrong.')
+            } finally {
+              setLoading(false)
+            }
+          }}
+          disabled={loading}
+          className="text-xs text-gray-400 hover:text-black underline underline-offset-2 transition-colors disabled:opacity-50"
+        >
+          Load mock results (no Gemini)
+        </button>
+      </div>
     </main>
   )
 }
