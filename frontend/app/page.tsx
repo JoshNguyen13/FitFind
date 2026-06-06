@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { analyzeUrl, analyzeImage, analyzeMock } from '@/lib/api'
+import { analyzeUrl, analyzeImage } from '@/lib/api'
 
 function friendlyError(err: unknown): string {
   const msg = err instanceof Error ? err.message : ''
@@ -35,7 +35,7 @@ export default function Home() {
       const result = await analyzeUrl(url)
       sessionStorage.setItem('fitfind_analysis', JSON.stringify(result))
       sessionStorage.removeItem('fitfind_mock')
-      router.push('/results')
+      router.push('/select')
     } catch (err) {
       setError(friendlyError(err))
     } finally {
@@ -59,7 +59,7 @@ export default function Home() {
       const result = await analyzeImage(file)
       sessionStorage.setItem('fitfind_analysis', JSON.stringify(result))
       sessionStorage.removeItem('fitfind_mock')
-      router.push('/results')
+      router.push('/select')
     } catch (err) {
       setError(friendlyError(err))
       setPreview(null)
@@ -147,30 +147,6 @@ export default function Home() {
         <p className="mt-6 text-xs text-red-600 tracking-wide">{error}</p>
       )}
 
-      {/* Dev mode */}
-      <div className="mt-20 pt-6 border-t border-neutral-100">
-        <p className="text-xs tracking-widest uppercase text-neutral-300 mb-2">Dev</p>
-        <button
-          onClick={async () => {
-            setError(null)
-            setLoading(true)
-            try {
-              const result = await analyzeMock()
-              sessionStorage.setItem('fitfind_analysis', JSON.stringify(result))
-              sessionStorage.setItem('fitfind_mock', 'true')
-              router.push('/results')
-            } catch (err) {
-              setError(friendlyError(err))
-            } finally {
-              setLoading(false)
-            }
-          }}
-          disabled={loading}
-          className="text-xs tracking-widest uppercase text-neutral-300 hover:text-black transition-colors disabled:opacity-50"
-        >
-          Load Mock Results
-        </button>
-      </div>
     </main>
   )
 }

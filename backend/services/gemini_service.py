@@ -16,7 +16,9 @@ VALID_AESTHETICS = [
 # Instructs Gemini to return a fixed JSON shape with no surrounding text.
 # Few-shot-style specificity rules ("oversized graphic tee" not "top") push
 # against Gemini's tendency to return generic item names.
-PROMPT = """Analyze this fashion image and return ONLY a JSON object. No markdown, no code fences, no explanation.
+PROMPT = """The following images are frames sampled from the same fashion video. A person may remove or reveal clothing between frames.
+
+Analyze ALL frames and return ONLY a JSON object. No markdown, no code fences, no explanation.
 
 Return exactly this structure:
 {
@@ -26,7 +28,8 @@ Return exactly this structure:
 }
 
 Rules for items:
-- List every clothing item visible on people in the image, ordered from most to least visually prominent (outerwear first, accessories last).
+- List every clothing item visible on people across ALL frames, ordered from most to least visually prominent (outerwear first, accessories last).
+- Include items that only appear in one frame (e.g. a shirt revealed when a jacket is removed).
 - For each item include: color + fit + item type + the single most distinctive visual detail you can see (pattern, texture, print, hardware, or silhouette feature). Only include details you can actually see — do not guess.
 - If a brand name or logo is clearly visible on any item, include it (e.g. "black Nike Air Force 1 sneakers", "Bape shark face camo hoodie", "white Adidas track pants").
 - Be specific but not exhaustive. 4-6 words per item is the target.
@@ -71,61 +74,27 @@ def _item_sig(item: str) -> str:
 
 
 # --- Public interface ---
-# Sends each frame to Gemini and returns the result with the highest confidence.
-# Bad frames (decode errors, Gemini failures) are skipped rather than crashing.
+# Sends ALL frames in a single Gemini request so the model can see the full
+# video context at once. This costs 1 call regardless of frame count, and lets
+# Gemini detect items that only appear in specific frames (e.g. a shirt revealed
+# when a jacket is removed).
 
 def analyze_frames(frames: list[bytes]) -> AnalysisResult:
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-    best: AnalysisResult | None = None
-    last_error: Exception | None = None
+    image_parts = [
+        types.Part.from_bytes(data=frame, mime_type="image/jpeg")
+        for frame in frames
+    ]
 
-    results = []
-    for frame_bytes in frames:
-        try:
-            result = _analyze_single_frame(client, frame_bytes)
-            results.append(result)
-        except Exception as e:
-            last_error = e
-            continue
-
-    if not results:
-        raise ValueError(f"Gemini could not analyze any frames. Last error: {last_error}")
-
-    # Use the highest-confidence result as the source of aesthetic + confidence,
-    # but merge items across all frames so outfits from different scenes are included.
-    # Deduplicate by brand + item type so "BAPE camo hoodie" and "Bape zip hoodie"
-    # don't both appear as separate entries.
-    best = max(results, key=lambda r: r.confidence)
-    seen_sigs: set[str] = set()
-    merged_items = []
-    for result in results:
-        for item in result.items:
-            sig = _item_sig(item)
-            if sig not in seen_sigs:
-                seen_sigs.add(sig)
-                merged_items.append(item)
-
-    return AnalysisResult(
-        items=merged_items,
-        aesthetic=best.aesthetic,
-        confidence=best.confidence,
-    )
-
-
-# --- Single-frame call ---
-# Packages the frame bytes as an inline image part and sends it alongside the
-# prompt in a single content block. gemini-2.5-flash accepts mixed text+image lists.
-
-def _analyze_single_frame(client: genai.Client, frame_bytes: bytes) -> AnalysisResult:
-    image_part = types.Part.from_bytes(data=frame_bytes, mime_type="image/jpeg")
-
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=[PROMPT, image_part],
-    )
-
-    return _parse_response(response.text.strip())
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=image_parts + [PROMPT],
+        )
+        return _parse_response(response.text.strip())
+    except Exception as e:
+        raise ValueError(f"Gemini could not analyze frames. Error: {e}")
 
 
 # --- Response normalization ---

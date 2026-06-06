@@ -71,9 +71,7 @@ def _fetch(query: str, sort: str) -> list[dict]:
     except requests.HTTPError:
         return []
 
-    results = response.json().get("shopping", [])
-    print(f"[Serper] query={query!r} → {len(results)} results")
-    return results
+    return response.json().get("shopping", [])
 
 
 # --- Normalization ---

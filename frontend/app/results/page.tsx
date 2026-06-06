@@ -66,7 +66,7 @@ export default function ResultsPage() {
 
   if (!analysis) return null
 
-  const detectedItems = analysis.analysis.items.slice(0, 6)
+  const detectedItems = analysis.exact_queries
 
   return (
     <main className="max-w-6xl mx-auto px-8 py-16 min-h-screen">

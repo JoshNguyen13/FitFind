@@ -85,10 +85,7 @@ def build_exact_queries(items: list[str], aesthetic: str) -> list[str]:
             seen_sigs.add(sig)
             deduped.append(item)
 
-    # Use item names directly — Gemini now returns concise 4-6 word descriptions
-    # that are already good search queries. Distilling them further breaks the
-    # item_label matching used by the frontend filter buttons.
-    return deduped[:8]
+    return deduped
 
 
 def build_related_query(aesthetic: str) -> str:
