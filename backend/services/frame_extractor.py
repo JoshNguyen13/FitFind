@@ -10,9 +10,10 @@ import yt_dlp
 # frames using OpenCV. The temp directory is cleaned up automatically on exit.
 
 def extract_frames_from_url(url: str) -> list[bytes]:
+    num_frames = int(os.getenv("GEMINI_FRAMES", "5"))
     with tempfile.TemporaryDirectory() as tmpdir:
         video_path = _download_video(url, tmpdir)
-        return _sample_frames(video_path, num_frames=5)
+        return _sample_frames(video_path, num_frames=num_frames)
 
 
 def _download_video(url: str, tmpdir: str) -> str:
@@ -50,7 +51,9 @@ def _sample_frames(video_path: str, num_frames: int = 5) -> list[bytes]:
 
     frames = []
     for i in range(num_frames):
-        frame_idx = int((i / num_frames) * total)
+        # Offset by 0.5 so samples land in the middle of each segment
+        # rather than at the very start — avoids blank/transition frames.
+        frame_idx = int(((i + 0.5) / num_frames) * total)
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         success, frame = cap.read()
         if not success:

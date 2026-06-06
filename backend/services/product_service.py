@@ -1,21 +1,20 @@
+import hashlib
 import os
 import requests
 
 from models.schemas import Product
 
 
-RAPIDAPI_URL = "https://real-time-product-search.p.rapidapi.com/search"
+SERPER_URL = "https://google.serper.dev/shopping"
 
-# Only sort values confirmed working from prototype testing.
-# BEST_MATCH is broken; NEWEST returns 400.
-SORT_MAP: dict[str, str] = {
-    "relevance":  "TOP_RATED",
-    "price_asc":  "LOWEST_PRICE",
-    "price_desc": "HIGHEST_PRICE",
-    "top_rated":  "TOP_RATED",
+SORT_MAP: dict[str, str | None] = {
+    "relevance":  None,
+    "price_asc":  "p_ord:p",
+    "price_desc": "p_ord:pd",
+    "top_rated":  "p_ord:rv",
 }
 
-MIN_PRICE_THRESHOLD = 5.0  # LOWEST_PRICE returns junk results ($0.01) below this
+MIN_PRICE_THRESHOLD = 5.0
 
 
 # --- Public interface ---
@@ -36,12 +35,7 @@ def search_products(
         if _is_valid(p)
     ]
 
-    # $5 junk threshold only applies to price_asc — that's the sort that surfaces
-    # $0.01 spam. Other sorts don't need it.
     effective_min = max(min_price, MIN_PRICE_THRESHOLD) if sort == "price_asc" else min_price
-
-    # Products with no parseable price are kept — they render as "See price".
-    # Only filter out products whose price IS known and falls outside the range.
     filtered = [
         p for p in normalized
         if p.price is None or (effective_min <= p.price <= max_price)
@@ -50,77 +44,72 @@ def search_products(
     return filtered[:limit]
 
 
-# --- RapidAPI call ---
+# --- Serper API call ---
 
 def _fetch(query: str, sort: str) -> list[dict]:
     headers = {
-        "X-RapidAPI-Key": os.getenv("RAPIDAPI_KEY"),
-        "X-RapidAPI-Host": "real-time-product-search.p.rapidapi.com",
-    }
-    params = {
-        "q": query,
-        "country": "us",
-        "language": "en",
-        "limit": "30",
-        "sort_by": SORT_MAP.get(sort, "TOP_RATED"),
+        "X-API-KEY": os.getenv("SERPER_API_KEY"),
+        "Content-Type": "application/json",
     }
 
+    body: dict = {
+        "q": query,
+        "gl": "us",
+        "hl": "en",
+        "num": 20,
+    }
+
+    tbs = SORT_MAP.get(sort)
+    if tbs:
+        body["tbs"] = tbs
+
     try:
-        response = requests.get(RAPIDAPI_URL, headers=headers, params=params, timeout=10)
+        response = requests.post(SERPER_URL, headers=headers, json=body, timeout=10)
         response.raise_for_status()
     except requests.Timeout:
         return []
     except requests.HTTPError:
         return []
 
-    return response.json().get("data", {}).get("products", [])
+    results = response.json().get("shopping", [])
+    print(f"[Serper] query={query!r} → {len(results)} results")
+    return results
 
 
 # --- Normalization ---
-# Maps the raw RapidAPI product dict to our Product schema.
-# Field paths confirmed from prototype testing — see CONTEXT.md for mapping notes.
+# Maps Serper's Google Shopping response to our Product schema.
 
 def _normalize(raw: dict, section: str) -> Product:
-    product_id = raw.get("product_id") or raw.get("id", "")
-    title = raw.get("product_title", "")
+    title = raw.get("title", "")
+    link = raw.get("link", "")
+    source = raw.get("source", "")
 
-    price = _parse_price(raw)
-    image_url = (raw.get("product_photos") or [None])[0]
-    purchase_url = raw.get("offer", {}).get("offer_page_url")
-    brand = title.split()[0] if title else None
+    product_id = str(raw.get("productId") or hashlib.md5(link.encode()).hexdigest())
+    price = _parse_price(raw.get("price", ""))
+
+    image_url = raw.get("imageUrl") or raw.get("thumbnailUrl") or None
 
     return Product(
-        product_id=str(product_id),
+        product_id=product_id,
         product_title=title,
         price=price,
         image_url=image_url,
-        purchase_url=purchase_url,
-        brand=brand,
+        purchase_url=link,
+        brand=source,
         section=section,
     )
 
 
-def _parse_price(raw: dict) -> float | None:
-    # Primary: offer.price is a string like "$84.00"
-    price_str = raw.get("offer", {}).get("price")
-    if price_str:
-        try:
-            return float(price_str.replace("$", "").replace(",", "").strip())
-        except ValueError:
-            pass
-
-    # Fallback: typical_price_range[0]
-    price_range = raw.get("typical_price_range")
-    if price_range and len(price_range) > 0:
-        try:
-            return float(str(price_range[0]).replace("$", "").replace(",", "").strip())
-        except ValueError:
-            pass
-
-    return None
+def _parse_price(price_str: str) -> float | None:
+    if not price_str:
+        return None
+    # Handle "From $29.99", "$49.99", "49.99", etc.
+    cleaned = price_str.replace("From", "").replace("$", "").replace(",", "").strip()
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
 
 
 def _is_valid(raw: dict) -> bool:
-    has_title = bool(raw.get("product_title"))
-    has_image = bool(raw.get("product_photos"))
-    return has_title and has_image
+    return bool(raw.get("title")) and bool(raw.get("link"))

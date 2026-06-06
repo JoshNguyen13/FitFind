@@ -60,9 +60,6 @@ export default function ResultsPage() {
     if (analysis) fetchResults(analysis, newSort, newMin, newMax)
   }
 
-  // Filter exact items by selected item label. item_label is the full query string
-  // (e.g. "light blue polo shirt streetwear"), analysis.items are the clean names
-  // (e.g. "light blue polo shirt"), so startsWith matches them correctly.
   const filteredExact = activeItem
     ? exactItems.filter(p => p.item_label?.startsWith(activeItem) ?? false)
     : exactItems
@@ -72,29 +69,30 @@ export default function ResultsPage() {
   const detectedItems = analysis.analysis.items.slice(0, 6)
 
   return (
-    <main className="max-w-6xl mx-auto px-6 py-12 min-h-screen">
-      {/* Back link + aesthetic badge */}
-      <div className="mb-10">
+    <main className="max-w-6xl mx-auto px-8 py-16 min-h-screen">
+
+      {/* Header */}
+      <div className="mb-12">
         <button
           onClick={() => router.push('/')}
-          className="text-sm text-gray-400 hover:text-black mb-6 block transition-colors"
+          className="text-xs tracking-widest uppercase text-neutral-400 hover:text-black transition-colors mb-8 block"
         >
-          ← New search
+          ← New Search
         </button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Results</h1>
-          <span className="bg-black text-white text-xs font-semibold px-3 py-1.5 rounded-full capitalize">
+        <div className="flex items-baseline gap-4 border-b border-black pb-6">
+          <h1 className="font-serif text-5xl font-light tracking-wide">The Look</h1>
+          <span className="text-xs tracking-widest text-neutral-500 capitalize">
             {analysis.analysis.aesthetic}
           </span>
         </div>
       </div>
 
       {fetchError && (
-        <div className="mb-8 p-4 bg-red-50 rounded-lg flex items-center justify-between">
-          <p className="text-sm text-red-600">{fetchError}</p>
+        <div className="mb-8 p-4 border border-red-200 flex items-center justify-between">
+          <p className="text-xs tracking-wide text-red-600">{fetchError}</p>
           <button
             onClick={() => analysis && fetchResults(analysis, sort, minPrice, maxPrice)}
-            className="text-sm font-medium text-red-600 hover:text-red-800 underline underline-offset-2"
+            className="text-xs tracking-widest uppercase underline underline-offset-2 text-red-600 hover:text-red-800"
           >
             Retry
           </button>
@@ -109,52 +107,71 @@ export default function ResultsPage() {
       />
 
       {/* Exact Items */}
-      <section className="mb-16">
-        <h2 className="text-lg font-semibold mb-1">Exact Items</h2>
-        <p className="text-sm text-gray-400 mb-4">Items detected directly from the source</p>
+      <section className="mb-20">
+        <div className="flex items-baseline justify-between mb-8">
+          <div>
+            <h2 className="font-serif text-3xl font-light tracking-wide mb-1">
+              Exact Items
+            </h2>
+            <p className="text-xs tracking-widest uppercase text-neutral-400">
+              Detected directly from the source
+            </p>
+          </div>
+        </div>
 
-        {/* Item filter buttons */}
+        {/* Item filter buttons — only show buttons that have at least one product */}
         {!loading && exactItems.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6">
-            {detectedItems.map(item => (
-              <button
-                key={item}
-                onClick={() => setActiveItem(activeItem === item ? null : item)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize transition-colors ${
-                  activeItem === item
-                    ? 'bg-black text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {item}
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-2 mb-8">
+            {detectedItems
+              .filter(item => exactItems.some(p => p.item_label?.startsWith(item)))
+              .map(item => (
+                <button
+                  key={item}
+                  onClick={() => setActiveItem(activeItem === item ? null : item)}
+                  className={`px-4 py-2 text-xs tracking-widest uppercase transition-colors border ${
+                    activeItem === item
+                      ? 'bg-black text-white border-black'
+                      : 'border-neutral-300 text-neutral-500 hover:border-black hover:text-black'
+                  }`}
+                >
+                  {item}
+                </button>
+              ))}
           </div>
         )}
 
         {loading ? (
           <SkeletonGrid />
         ) : filteredExact.length === 0 ? (
-          <p className="text-sm text-gray-400 py-8">No exact items found</p>
+          <p className="text-xs tracking-widest uppercase text-neutral-400 py-12">
+            No items found
+          </p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-12">
             {filteredExact.map(p => <ProductCard key={p.product_id} product={p} />)}
           </div>
         )}
       </section>
 
-      {/* Related Items */}
-      <section>
-        <h2 className="text-lg font-semibold mb-1">Related Items</h2>
-        <p className="text-sm text-gray-400 mb-6">
-          More items matching the {analysis.analysis.aesthetic} aesthetic
-        </p>
+      {/* More aesthetic picks */}
+      <section className="pt-12 border-t border-neutral-200">
+        <div className="mb-8">
+          <h2 className="font-serif text-3xl font-light tracking-wide mb-1 capitalize">
+            More {analysis.analysis.aesthetic} Picks
+          </h2>
+          <p className="text-xs tracking-widest uppercase text-neutral-400">
+            Other pieces that fit the {analysis.analysis.aesthetic} style
+          </p>
+        </div>
+
         {loading ? (
           <SkeletonGrid />
         ) : relatedItems.length === 0 ? (
-          <p className="text-sm text-gray-400 py-8">No related items found</p>
+          <p className="text-xs tracking-widest uppercase text-neutral-400 py-12">
+            No items found
+          </p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-12">
             {relatedItems.map(p => <ProductCard key={p.product_id} product={p} />)}
           </div>
         )}
@@ -165,13 +182,13 @@ export default function ResultsPage() {
 
 function SkeletonGrid() {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-12">
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="animate-pulse">
-          <div className="aspect-3/4 bg-gray-200 rounded-lg mb-3" />
-          <div className="h-2.5 bg-gray-200 rounded mb-2 w-1/2" />
-          <div className="h-2.5 bg-gray-200 rounded mb-2" />
-          <div className="h-2.5 bg-gray-200 rounded w-1/3" />
+          <div className="aspect-3/4 bg-neutral-100 mb-3" />
+          <div className="h-2 bg-neutral-100 mb-2 w-1/3" />
+          <div className="h-2 bg-neutral-100 mb-2" />
+          <div className="h-2 bg-neutral-100 w-1/4" />
         </div>
       ))}
     </div>

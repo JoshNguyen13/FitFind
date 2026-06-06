@@ -25,13 +25,15 @@ export default function SortFilter({ sort, minPrice, maxPrice, onChange }: Props
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-4 mb-10 p-4 bg-gray-50 rounded-xl">
+    <div className="flex flex-wrap items-end gap-8 mb-12 pb-8 border-b border-neutral-200">
       <div>
-        <label className="block text-xs text-gray-500 mb-1.5">Sort by</label>
+        <label className="block text-xs tracking-widest uppercase text-neutral-400 mb-2">
+          Sort
+        </label>
         <select
           value={sort}
           onChange={handleSortChange}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-black"
+          className="border-b border-black bg-white text-sm py-1.5 pr-8 outline-none appearance-none cursor-pointer"
         >
           <option value="relevance">Relevance</option>
           <option value="price_asc">Price: Low to High</option>
@@ -40,36 +42,40 @@ export default function SortFilter({ sort, minPrice, maxPrice, onChange }: Props
         </select>
       </div>
 
-      <div>
-        <label className="block text-xs text-gray-500 mb-1.5">Min price</label>
-        <input
-          type="number"
-          min={0}
-          value={localMin}
-          onChange={e => setLocalMin(e.target.value)}
-          placeholder="0"
-          className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-        />
+      <div className="flex items-end gap-3">
+        <div>
+          <label className="block text-xs tracking-widest uppercase text-neutral-400 mb-2">
+            Min
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={localMin}
+            onChange={e => setLocalMin(e.target.value)}
+            placeholder="—"
+            className="w-20 border-b border-black bg-white text-sm py-1.5 outline-none placeholder:text-neutral-300"
+          />
+        </div>
+        <div>
+          <label className="block text-xs tracking-widest uppercase text-neutral-400 mb-2">
+            Max
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={localMax}
+            onChange={e => setLocalMax(e.target.value)}
+            placeholder="—"
+            className="w-20 border-b border-black bg-white text-sm py-1.5 outline-none placeholder:text-neutral-300"
+          />
+        </div>
+        <button
+          onClick={handlePriceApply}
+          className="text-xs tracking-widest uppercase pb-1.5 border-b border-black hover:text-neutral-500 transition-colors"
+        >
+          Apply
+        </button>
       </div>
-
-      <div>
-        <label className="block text-xs text-gray-500 mb-1.5">Max price</label>
-        <input
-          type="number"
-          min={0}
-          value={localMax}
-          onChange={e => setLocalMax(e.target.value)}
-          placeholder="No limit"
-          className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-        />
-      </div>
-
-      <button
-        onClick={handlePriceApply}
-        className="px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
-      >
-        Apply
-      </button>
     </div>
   )
 }

@@ -26,29 +26,25 @@ Return exactly this structure:
 }
 
 Rules for items:
-- List clothing items worn by people in the image, ordered from most to least visually prominent (outerwear first, accessories last).
-- Each item name must include: COLOR + FIT or MATERIAL + ITEM TYPE + any distinctive detail.
-- Format: "[color] [fit/material] [item type] [detail]"
-- Keep each name to 4-6 words — specific enough to search, short enough to be a good query.
-- ALWAYS distinguish bottom garment length — this is critical for search accuracy:
-    - hem above mid-thigh → "shorts"
-    - hem at or just above the knee → "knee length shorts"
-    - hem below the knee but above the ankle → "long shorts" or "bermuda shorts"
-    - hem at the ankle → "pants" or "trousers"
-    - Never write "pants" for any garment whose hem is above the ankle.
-- Return an empty list if no clothing or people are visible.
+- List every clothing item visible on people in the image, ordered from most to least visually prominent (outerwear first, accessories last).
+- For each item include: color + fit + item type + the single most distinctive visual detail you can see (pattern, texture, print, hardware, or silhouette feature). Only include details you can actually see — do not guess.
+- If a brand name or logo is clearly visible on any item, include it (e.g. "black Nike Air Force 1 sneakers", "Bape shark face camo hoodie", "white Adidas track pants").
+- Be specific but not exhaustive. 4-6 words per item is the target.
+- ALWAYS distinguish bottom garment length:
+    - hem above knee → "shorts"
+    - hem at the knee → "knee length shorts"
+    - hem below knee but above ankle → "bermuda shorts"
+    - hem at the ankle → "pants" or "jeans" (never use these for anything shorter)
+- Return an empty list only if there are genuinely no people or no clothing visible.
 
-Good examples (use this level of detail):
-- "olive green baggy camo knee length shorts" — for shorts that end at the knee
-- "khaki baggy cargo bermuda shorts" — for shorts that end below the knee
-- "black loose athletic shorts" — for shorts above the mid-thigh
-- "olive green baggy camo cargo pants" — only if the hem actually reaches the ankle
+Good examples:
 - "light blue slim fit polo shirt" not "polo shirt"
-- "black oversized zip-up hoodie" not "hoodie"
+- "olive green baggy camo knee length shorts" not "cargo pants"
+- "black oversized drop shoulder graphic tee" not "black shirt"
+- "dark wash straight leg denim jeans" not "jeans"
 - "white chunky platform sneakers" not "shoes"
-- "washed grey baggy denim jeans" not "jeans"
-- "brown leather varsity jacket" not "jacket"
-- "fitted white ribbed tank top" not "top"
+- "brown suede lace-up combat boots" not "boots"
+- "silver chunky chain link necklace" not "necklace"
 
 Rules for aesthetic:
 - Pick exactly one from: streetwear, casual, business casual, formal, y2k, minimalist, gorpcore, quiet luxury, preppy, grunge, cottagecore, dark academia, athleisure, coastal
@@ -57,6 +53,21 @@ Rules for confidence:
 - Float from 0.0 to 1.0 for how confident you are in the aesthetic label.
 
 Return ONLY the JSON object. Nothing before or after it."""
+
+
+_KNOWN_BRANDS = {
+    "bape", "nike", "adidas", "jordan", "supreme", "gucci", "prada",
+    "balenciaga", "yeezy", "carhartt", "stussy", "ralph", "tommy",
+    "lacoste", "champion", "fila", "puma", "reebok", "vans", "converse",
+    "off-white", "dior", "versace", "burberry", "kith", "palace",
+}
+
+def _item_sig(item: str) -> str:
+    """Rough identity signature for cross-frame deduplication: brand + item type."""
+    words = item.lower().split()
+    brand = next((w for w in words if w in _KNOWN_BRANDS), "")
+    item_type = words[-1] if words else ""
+    return f"{brand}_{item_type}"
 
 
 # --- Public interface ---
@@ -69,19 +80,37 @@ def analyze_frames(frames: list[bytes]) -> AnalysisResult:
     best: AnalysisResult | None = None
     last_error: Exception | None = None
 
+    results = []
     for frame_bytes in frames:
         try:
             result = _analyze_single_frame(client, frame_bytes)
-            if best is None or result.confidence > best.confidence:
-                best = result
+            results.append(result)
         except Exception as e:
             last_error = e
             continue
 
-    if best is None:
+    if not results:
         raise ValueError(f"Gemini could not analyze any frames. Last error: {last_error}")
 
-    return best
+    # Use the highest-confidence result as the source of aesthetic + confidence,
+    # but merge items across all frames so outfits from different scenes are included.
+    # Deduplicate by brand + item type so "BAPE camo hoodie" and "Bape zip hoodie"
+    # don't both appear as separate entries.
+    best = max(results, key=lambda r: r.confidence)
+    seen_sigs: set[str] = set()
+    merged_items = []
+    for result in results:
+        for item in result.items:
+            sig = _item_sig(item)
+            if sig not in seen_sigs:
+                seen_sigs.add(sig)
+                merged_items.append(item)
+
+    return AnalysisResult(
+        items=merged_items,
+        aesthetic=best.aesthetic,
+        confidence=best.confidence,
+    )
 
 
 # --- Single-frame call ---

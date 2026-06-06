@@ -3,12 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 
-from models.schemas import AnalyzeURLRequest, AnalyzeResponse, ResultsRequest, ResultsResponse
+from models.schemas import AnalyzeURLRequest, AnalyzeResponse, ResultsRequest, ResultsResponse, Product
 from services.frame_extractor import extract_frames_from_url, extract_frames_from_image
 from services.gemini_service import analyze_frames
 from services.query_builder import build_exact_queries, build_related_query
 from services.product_service import search_products
-from db.cache import init_db, make_key, get_cached, set_cached
+from db.cache import init_db, make_key, get_cached, set_cached, make_gemini_key, get_gemini_cached, set_gemini_cached
 
 load_dotenv()
 
@@ -29,27 +29,107 @@ async def health():
     return {"status": "ok"}
 
 
+# --- Mock endpoints ---
+# Zero API calls — use these when Gemini or RapidAPI quota is exhausted.
+# /analyze-mock returns a hardcoded analysis.
+# /results-mock returns hardcoded products covering all result sections.
+
+@app.post("/analyze-mock", response_model=AnalyzeResponse)
+async def analyze_mock():
+    from models.schemas import AnalysisResult
+    analysis = AnalysisResult(
+        items=[
+            "light blue slim fit polo shirt",
+            "olive green baggy camo knee length shorts",
+            "white chunky platform sneakers",
+            "black bandana wristband",
+            "silver chain necklace",
+        ],
+        aesthetic="streetwear",
+        confidence=0.91,
+    )
+    return AnalyzeResponse(
+        frame_count=5,
+        analysis=analysis,
+        exact_queries=build_exact_queries(analysis.items, analysis.aesthetic),
+        related_query=build_related_query(analysis.aesthetic),
+    )
+
+
+@app.post("/results-mock", response_model=ResultsResponse)
+async def results_mock():
+    def _p(id, title, price, image, url, section, label):
+        return Product(
+            product_id=id, product_title=title, price=price,
+            image_url=image, purchase_url=url, brand=title.split()[0],
+            section=section, item_label=label,
+        )
+
+    polo = "light blue slim fit polo shirt streetwear"
+    shorts = "olive green baggy camo knee length shorts streetwear"
+    sneakers = "white chunky platform sneakers streetwear"
+    necklace = "silver chain necklace"
+
+    exact = [
+        _p("1", "Light Blue Ralph Lauren Slim Fit Polo", 89.99, "https://placehold.co/300x400", "https://example.com", "exact", polo),
+        _p("2", "Light Blue Tommy Hilfiger Polo Shirt", 74.99, "https://placehold.co/300x400", "https://example.com", "exact", polo),
+        _p("3", "Light Blue Lacoste Classic Polo", 99.00, "https://placehold.co/300x400", "https://example.com", "exact", polo),
+        _p("4", "Olive Green Camo Cargo Knee Shorts", 54.99, "https://placehold.co/300x400", "https://example.com", "exact", shorts),
+        _p("5", "Army Green Ripstop Cargo Shorts", 49.99, "https://placehold.co/300x400", "https://example.com", "exact", shorts),
+        _p("6", "White New Balance 574 Platform Sneakers", 109.99, "https://placehold.co/300x400", "https://example.com", "exact", sneakers),
+        _p("7", "White Chunky Sole Fila Disruptor Sneakers", 89.99, "https://placehold.co/300x400", "https://example.com", "exact", sneakers),
+        _p("8", "Silver Cuban Link Chain Necklace", 34.99, "https://placehold.co/300x400", "https://example.com", "exact", necklace),
+        _p("9", "Silver Figaro Chain Necklace 24 inch", 29.99, "https://placehold.co/300x400", "https://example.com", "exact", necklace),
+    ]
+
+    related = [
+        _p("10", "Streetwear Oversized Graphic Tee", 44.99, "https://placehold.co/300x400", "https://example.com", "related", None),
+        _p("11", "Baggy Cargo Pants Streetwear", 64.99, "https://placehold.co/300x400", "https://example.com", "related", None),
+        _p("12", "Streetwear Puffer Jacket Black", 119.99, "https://placehold.co/300x400", "https://example.com", "related", None),
+        _p("13", "Jordan 1 Low Streetwear Sneakers", 139.99, "https://placehold.co/300x400", "https://example.com", "related", None),
+        _p("14", "Streetwear Bucket Hat Black", 29.99, "https://placehold.co/300x400", "https://example.com", "related", None),
+        _p("15", "Oversized Hoodie Urban Streetwear", 79.99, "https://placehold.co/300x400", "https://example.com", "related", None),
+    ]
+
+    return ResultsResponse(exact_items=exact, related_items=related)
+
+
 # --- URL analysis endpoint ---
 # Extracts 5 frames from the video at the given URL, sends them to Gemini,
 # and returns the highest-confidence analysis result plus ready-to-use query strings.
 
 @app.post("/analyze-url", response_model=AnalyzeResponse)
 async def analyze_url(body: AnalyzeURLRequest):
-    try:
-        frames = extract_frames_from_url(body.url)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+    # Return cached Gemini result if this URL has been analyzed before,
+    # saving 5 Gemini calls per repeat request.
+    gemini_key = make_gemini_key(body.url)
+    cached_analysis = get_gemini_cached(gemini_key)
 
-    if not frames:
-        raise HTTPException(status_code=422, detail="No frames could be extracted from the video")
+    if cached_analysis:
+        from models.schemas import AnalysisResult
+        analysis = AnalysisResult(**cached_analysis)
+        frame_count = cached_analysis.get("_frame_count", 5)
+    else:
+        try:
+            frames = extract_frames_from_url(body.url)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
 
-    try:
-        analysis = analyze_frames(frames)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        if not frames:
+            raise HTTPException(status_code=422, detail="No frames could be extracted from the video")
+
+        try:
+            analysis = analyze_frames(frames)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+        frame_count = len(frames)
+        payload = analysis.model_dump()
+        payload["_frame_count"] = frame_count
+        set_gemini_cached(gemini_key, payload)
 
     return AnalyzeResponse(
-        frame_count=len(frames),
+        frame_count=frame_count,
         analysis=analysis,
         exact_queries=build_exact_queries(analysis.items, analysis.aesthetic),
         related_query=build_related_query(analysis.aesthetic),

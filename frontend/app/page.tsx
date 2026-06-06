@@ -69,37 +69,48 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen max-w-lg mx-auto px-6 py-24">
-      <h1 className="text-5xl font-bold tracking-tight mb-3">FitFind</h1>
-      <p className="text-gray-400 mb-14 text-base leading-relaxed">
-        Paste a TikTok or Instagram URL, or upload a screenshot — get shoppable results.
-      </p>
+    <main className="min-h-screen max-w-xl mx-auto px-8 flex flex-col justify-center py-24">
+
+      {/* Wordmark */}
+      <div className="mb-16">
+        <h1 className="font-serif text-6xl font-light tracking-widest uppercase mb-4">
+          FitFind
+        </h1>
+        <p className="text-xs tracking-widest uppercase text-neutral-500">
+          Identify any outfit. Shop the look.
+        </p>
+      </div>
 
       {/* URL input */}
-      <form onSubmit={handleUrlSubmit} className="flex gap-3 mb-8">
-        <input
-          type="url"
-          value={url}
-          onChange={e => setUrl(e.target.value)}
-          placeholder="https://www.tiktok.com/@..."
-          disabled={loading}
-          required
-          className="flex-1 border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black disabled:opacity-50"
-        />
-        <button
-          type="submit"
-          disabled={loading || !url}
-          className="bg-black text-white px-5 py-3 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-40"
-        >
-          {loading ? 'Analyzing…' : 'Analyze'}
-        </button>
+      <form onSubmit={handleUrlSubmit} className="mb-10">
+        <label className="block text-xs tracking-widest uppercase text-neutral-400 mb-3">
+          Paste a TikTok or Instagram URL
+        </label>
+        <div className="flex gap-0 border border-black">
+          <input
+            type="url"
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            placeholder="https://www.tiktok.com/@..."
+            disabled={loading}
+            required
+            className="flex-1 px-4 py-3.5 text-sm bg-white outline-none placeholder:text-neutral-300 disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={loading || !url}
+            className="px-6 py-3.5 bg-black text-white text-xs tracking-widest uppercase hover:bg-neutral-800 transition-colors disabled:opacity-40 whitespace-nowrap"
+          >
+            {loading ? 'Analyzing…' : 'Analyze'}
+          </button>
+        </div>
       </form>
 
       {/* Divider */}
-      <div className="flex items-center gap-4 mb-8">
-        <div className="flex-1 h-px bg-gray-200" />
-        <span className="text-xs text-gray-400 uppercase tracking-wide">or upload an image</span>
-        <div className="flex-1 h-px bg-gray-200" />
+      <div className="flex items-center gap-6 mb-10">
+        <div className="flex-1 h-px bg-neutral-200" />
+        <span className="text-xs tracking-widest uppercase text-neutral-400">Or</span>
+        <div className="flex-1 h-px bg-neutral-200" />
       </div>
 
       {/* Image upload */}
@@ -113,12 +124,12 @@ export default function Home() {
       />
 
       {preview ? (
-        <div className="relative rounded-lg overflow-hidden">
+        <div className="relative border border-black overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={preview} alt="Preview" className="w-full max-h-72 object-cover" />
           {loading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/75">
-              <span className="text-sm font-medium">Analyzing…</span>
+            <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+              <span className="text-xs tracking-widest uppercase">Analyzing…</span>
             </div>
           )}
         </div>
@@ -126,17 +137,19 @@ export default function Home() {
         <button
           onClick={() => fileRef.current?.click()}
           disabled={loading}
-          className="w-full border-2 border-dashed border-gray-300 rounded-lg py-14 text-sm text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+          className="w-full border border-black py-12 text-xs tracking-widest uppercase text-neutral-400 hover:text-black hover:border-black transition-colors disabled:opacity-50"
         >
-          Click to upload JPG, PNG, or WEBP
+          Upload Image — JPG, PNG, WEBP
         </button>
       )}
 
-      {error && <p className="mt-5 text-sm text-red-600">{error}</p>}
+      {error && (
+        <p className="mt-6 text-xs text-red-600 tracking-wide">{error}</p>
+      )}
 
-      {/* Dev shortcut — bypasses Gemini entirely */}
-      <div className="mt-16 pt-8 border-t border-gray-100">
-        <p className="text-xs text-gray-400 mb-3">Dev mode</p>
+      {/* Dev mode */}
+      <div className="mt-20 pt-6 border-t border-neutral-100">
+        <p className="text-xs tracking-widest uppercase text-neutral-300 mb-2">Dev</p>
         <button
           onClick={async () => {
             setError(null)
@@ -147,15 +160,15 @@ export default function Home() {
               sessionStorage.setItem('fitfind_mock', 'true')
               router.push('/results')
             } catch (err) {
-              setError(err instanceof Error ? err.message : 'Something went wrong.')
+              setError(friendlyError(err))
             } finally {
               setLoading(false)
             }
           }}
           disabled={loading}
-          className="text-xs text-gray-400 hover:text-black underline underline-offset-2 transition-colors disabled:opacity-50"
+          className="text-xs tracking-widest uppercase text-neutral-300 hover:text-black transition-colors disabled:opacity-50"
         >
-          Load mock results (no Gemini)
+          Load Mock Results
         </button>
       </div>
     </main>
