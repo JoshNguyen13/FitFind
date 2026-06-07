@@ -27,23 +27,18 @@ export default function ResultsPage() {
     }
     const data: AnalyzeResponse = JSON.parse(stored)
     setAnalysis(data)
-    fetchResults(data, 'relevance', 0, 10000)
+    fetchResults(data)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function fetchResults(
-    data: AnalyzeResponse,
-    sortVal: SortOption,
-    min: number,
-    max: number,
-  ) {
+  async function fetchResults(data: AnalyzeResponse) {
     setLoading(true)
     setFetchError(null)
     try {
       const isMock = sessionStorage.getItem('fitfind_mock') === 'true'
       const results = isMock
         ? await getMockResults()
-        : await getResults(data.exact_queries, data.related_query, sortVal, min, max)
+        : await getResults(data.exact_queries, data.related_query)
       setExactItems(results.exact_items)
       setRelatedItems(results.related_items)
     } catch {
@@ -57,12 +52,25 @@ export default function ResultsPage() {
     setSort(newSort)
     setMinPrice(newMin)
     setMaxPrice(newMax)
-    if (analysis) fetchResults(analysis, newSort, newMin, newMax)
   }
 
+  function applySort(items: Product[], s: SortOption): Product[] {
+    const copy = [...items]
+    if (s === 'price_asc') return copy.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity))
+    if (s === 'price_desc') return copy.sort((a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity))
+    return copy
+  }
+
+  function applyPrice(items: Product[], min: number, max: number): Product[] {
+    return items.filter(p => p.price === null || p.price === undefined || (p.price >= min && p.price <= max))
+  }
+
+  const processedExact = applySort(applyPrice(exactItems, minPrice, maxPrice), sort)
+  const processedRelated = applySort(applyPrice(relatedItems, minPrice, maxPrice), sort)
+
   const filteredExact = activeItem
-    ? exactItems.filter(p => p.item_label?.startsWith(activeItem) ?? false)
-    : exactItems
+    ? processedExact.filter(p => p.item_label?.startsWith(activeItem) ?? false)
+    : processedExact
 
   if (!analysis) return null
 
@@ -91,7 +99,7 @@ export default function ResultsPage() {
         <div className="mb-8 p-4 border border-red-200 flex items-center justify-between">
           <p className="text-xs tracking-wide text-red-600">{fetchError}</p>
           <button
-            onClick={() => analysis && fetchResults(analysis, sort, minPrice, maxPrice)}
+            onClick={() => analysis && fetchResults(analysis)}
             className="text-xs tracking-widest uppercase underline underline-offset-2 text-red-600 hover:text-red-800"
           >
             Retry
@@ -166,13 +174,13 @@ export default function ResultsPage() {
 
         {loading ? (
           <SkeletonGrid />
-        ) : relatedItems.length === 0 ? (
+        ) : processedRelated.length === 0 ? (
           <p className="text-xs tracking-widest uppercase text-neutral-400 py-12">
             No items found
           </p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-12">
-            {relatedItems.map(p => <ProductCard key={p.product_id} product={p} />)}
+            {processedRelated.map(p => <ProductCard key={p.product_id} product={p} />)}
           </div>
         )}
       </section>

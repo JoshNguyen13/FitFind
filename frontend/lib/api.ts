@@ -42,9 +42,6 @@ export async function analyzeImage(file: File): Promise<AnalyzeResponse> {
 export async function getResults(
   exactQueries: string[],
   relatedQuery: string,
-  sort: SortOption,
-  minPrice: number,
-  maxPrice: number,
 ): Promise<ResultsResponse> {
   const res = await fetch(`${API_URL}/results`, {
     method: 'POST',
@@ -52,9 +49,6 @@ export async function getResults(
     body: JSON.stringify({
       exact_queries: exactQueries,
       related_query: relatedQuery,
-      sort,
-      min_price: minPrice,
-      max_price: maxPrice,
     }),
   })
   return handleResponse<ResultsResponse>(res)

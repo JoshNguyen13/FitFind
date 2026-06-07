@@ -177,48 +177,27 @@ async def analyze_image(file: UploadFile = File(...)):
 
 @app.post("/results", response_model=ResultsResponse)
 async def results(body: ResultsRequest):
-    exact_items = _fetch_section(
-        queries=body.exact_queries,
-        section="exact",
-        sort=body.sort,
-        min_price=body.min_price,
-        max_price=body.max_price,
-    )
-
-    related_items = _fetch_section(
-        queries=[body.related_query],
-        section="related",
-        sort=body.sort,
-        min_price=body.min_price,
-        max_price=body.max_price,
-    )
-
+    exact_items = _fetch_section(body.exact_queries, "exact")
+    related_items = _fetch_section([body.related_query], "related")
     return ResultsResponse(exact_items=exact_items, related_items=related_items)
 
 
-def _fetch_section(
-    queries: list[str],
-    section: str,
-    sort: str,
-    min_price: float,
-    max_price: float,
-) -> list:
+def _fetch_section(queries: list[str], section: str) -> list:
     seen_ids: set[str] = set()
     products = []
 
     for query in queries:
-        key = make_key(query, sort, min_price, max_price)
+        key = make_key(query)
         cached = get_cached(key)
 
-        if cached is not None:
-            batch = cached
-        else:
-            batch = [p.model_dump() for p in search_products(query, section, sort, min_price, max_price)]
+        if cached is None:
+            batch = [p.model_dump() for p in search_products(query, section)]
             for item in batch:
                 item["item_label"] = query
             set_cached(key, batch)
+        else:
+            batch = cached
 
-        # Deduplicate by product_id across multiple exact queries
         for item in batch:
             if item["product_id"] not in seen_ids:
                 seen_ids.add(item["product_id"])

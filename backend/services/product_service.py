@@ -7,68 +7,27 @@ from models.schemas import Product
 
 SERPER_URL = "https://google.serper.dev/shopping"
 
-SORT_MAP: dict[str, str | None] = {
-    "relevance":  None,
-    "price_asc":  "p_ord:p",
-    "price_desc": "p_ord:pd",
-    "top_rated":  "p_ord:rv",
-}
-
-MIN_PRICE_THRESHOLD = 5.0
-
-
 # --- Public interface ---
 
-def search_products(
-    query: str,
-    section: str,
-    sort: str = "relevance",
-    min_price: float = 0,
-    max_price: float = 10000,
-    limit: int = 5,
-) -> list[Product]:
-    raw_products = _fetch(query, sort)
-
-    normalized = [
-        _normalize(p, section)
-        for p in raw_products
-        if _is_valid(p)
-    ]
-
-    effective_min = max(min_price, MIN_PRICE_THRESHOLD) if sort == "price_asc" else min_price
-    filtered = [
-        p for p in normalized
-        if p.price is None or (effective_min <= p.price <= max_price)
-    ]
-
-    return filtered[:limit]
+def search_products(query: str, section: str, limit: int = 15) -> list[Product]:
+    raw_products = _fetch(query)
+    normalized = [_normalize(p, section) for p in raw_products if _is_valid(p)]
+    return normalized[:limit]
 
 
 # --- Serper API call ---
 
-def _fetch(query: str, sort: str) -> list[dict]:
+def _fetch(query: str) -> list[dict]:
     headers = {
         "X-API-KEY": os.getenv("SERPER_API_KEY"),
         "Content-Type": "application/json",
     }
-
-    body: dict = {
-        "q": query,
-        "gl": "us",
-        "hl": "en",
-        "num": 20,
-    }
-
-    tbs = SORT_MAP.get(sort)
-    if tbs:
-        body["tbs"] = tbs
+    body = {"q": query, "gl": "us", "hl": "en", "num": 20}
 
     try:
         response = requests.post(SERPER_URL, headers=headers, json=body, timeout=10)
         response.raise_for_status()
-    except requests.Timeout:
-        return []
-    except requests.HTTPError:
+    except (requests.Timeout, requests.HTTPError):
         return []
 
     return response.json().get("shopping", [])

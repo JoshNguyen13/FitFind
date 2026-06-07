@@ -39,9 +39,6 @@ class Product(BaseModel):
 class ResultsRequest(BaseModel):
     exact_queries: list[str]
     related_query: str
-    sort: str = "relevance"
-    min_price: float = 0
-    max_price: float = 10000
 
 
 class ResultsResponse(BaseModel):

@@ -26,9 +26,8 @@ def init_db():
 
 # --- Public interface ---
 
-def make_key(query: str, sort: str, min_price: float, max_price: float) -> str:
-    raw = f"{query}|{sort}|{min_price}|{max_price}"
-    return hashlib.md5(raw.encode()).hexdigest()
+def make_key(query: str) -> str:
+    return hashlib.md5(query.encode()).hexdigest()
 
 
 def get_cached(key: str) -> list | None:
