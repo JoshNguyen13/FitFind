@@ -81,6 +81,7 @@ def _item_sig(item: str) -> str:
 # when a jacket is removed).
 
 def analyze_frames(frames: list[bytes]) -> AnalysisResult:
+    import time
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
     image_parts = [
@@ -88,14 +89,18 @@ def analyze_frames(frames: list[bytes]) -> AnalysisResult:
         for frame in frames
     ]
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=image_parts + [PROMPT],
-        )
-        return _parse_response(response.text.strip())
-    except Exception as e:
-        raise ValueError(f"Gemini could not analyze frames. Error: {e}")
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=image_parts + [PROMPT],
+            )
+            return _parse_response(response.text.strip())
+        except Exception as e:
+            if "503" in str(e) and attempt < 2:
+                time.sleep(5 * (attempt + 1))
+                continue
+            raise ValueError(f"Gemini could not analyze frames. Error: {e}")
 
 
 # --- Response normalization ---
