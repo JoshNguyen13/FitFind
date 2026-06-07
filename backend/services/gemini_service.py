@@ -30,9 +30,10 @@ Return exactly this structure:
 Rules for items:
 - List every clothing item visible on people across ALL frames, ordered from most to least visually prominent (outerwear first, accessories last).
 - Include items that only appear in one frame (e.g. a shirt revealed when a jacket is removed).
-- For each item include: color + fit + item type + the single most distinctive visual detail you can see (pattern, texture, print, hardware, or silhouette feature). Only include details you can actually see — do not guess.
-- If a brand name or logo is clearly visible on any item, include it (e.g. "black Nike Air Force 1 sneakers", "Bape shark face camo hoodie", "white Adidas track pants").
-- Be specific but not exhaustive. 4-6 words per item is the target.
+- For each item include: gender + color + fit + item type + the single most distinctive visual detail you can see (pattern, texture, print, hardware, or silhouette feature). Only include details you can actually see — do not guess.
+- Start every item with "men's", "women's", or "unisex" based on the person wearing it. If gender is ambiguous, use "unisex".
+- If a brand name or logo is clearly visible on any item, include it (e.g. "men's black Nike Air Force 1 sneakers", "men's Bape shark face camo hoodie", "women's white Adidas track pants").
+- Be specific but not exhaustive. 5-7 words per item is the target.
 - ALWAYS distinguish bottom garment length:
     - hem above knee → "shorts"
     - hem at the knee → "knee length shorts"
@@ -41,13 +42,13 @@ Rules for items:
 - Return an empty list only if there are genuinely no people or no clothing visible.
 
 Good examples:
-- "light blue slim fit polo shirt" not "polo shirt"
-- "olive green baggy camo knee length shorts" not "cargo pants"
-- "black oversized drop shoulder graphic tee" not "black shirt"
-- "dark wash straight leg denim jeans" not "jeans"
-- "white chunky platform sneakers" not "shoes"
-- "brown suede lace-up combat boots" not "boots"
-- "silver chunky chain link necklace" not "necklace"
+- "men's light blue slim fit polo shirt" not "polo shirt"
+- "men's olive green baggy camo knee length shorts" not "cargo pants"
+- "men's black oversized drop shoulder graphic tee" not "black shirt"
+- "women's dark wash straight leg denim jeans" not "jeans"
+- "women's white chunky platform sneakers" not "shoes"
+- "women's brown suede lace-up combat boots" not "boots"
+- "unisex silver chunky chain link necklace" not "necklace"
 
 Rules for aesthetic:
 - Pick exactly one from: streetwear, casual, business casual, formal, y2k, minimalist, gorpcore, quiet luxury, preppy, grunge, cottagecore, dark academia, athleisure, coastal
