@@ -117,14 +117,18 @@ async def analyze_url(body: AnalyzeURLRequest):
         try:
             frames = extract_frames_from_url(body.url)
         except ValueError as e:
+            print(f"[frame extraction error] {e}")
             raise HTTPException(status_code=422, detail=str(e))
 
         if not frames:
+            print("[frame extraction error] no frames returned")
             raise HTTPException(status_code=422, detail="No frames could be extracted from the video")
 
+        print(f"[analyze-url] extracted {len(frames)} frames, sending to Gemini")
         try:
             analysis = analyze_frames(frames)
         except ValueError as e:
+            print(f"[gemini error] {e}")
             raise HTTPException(status_code=422, detail=str(e))
 
         frame_count = len(frames)
